@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 )
 
 type Options struct {
@@ -61,8 +63,12 @@ func getOptionsFromIniFile(f string) Options {
 	// Get status from ARG2
 	conf.EFFECTIVE_STATUS = os.Args[2]
 
-	// Get Value from ARG3
-	conf.VALUE = os.Args[3]
+	// Test if third argument is provided, if not, replace by current date/time
+	if len(os.Args) == 4 {
+		conf.VALUE = os.Args[3]
+	} else {
+		conf.VALUE = time.Now().Format("Monday 2006-01-02 15:04:05")
+	}
 
 	return conf
 }
@@ -84,12 +90,27 @@ func postToBee(c Options) string {
 func testArgs() {
 	values := map[string]bool{"OK": true, "WA": true, "CR": true, "TO": true, "DS": true}
 
+	// Test if run with arguments
 	if len(os.Args) > 1 {
-
 	} else {
 		log.Fatalf("Missing Arguments !\n Usage : beeG.exe [ini file] [\"Status\"] [\"Value\"]")
 	}
 
+	// Test if first argument contains .ini
+	if strings.Contains(os.Args[1], ".ini") {
+	} else {
+		log.Fatalf("First argument must contain a *.ini file name")
+	}
+
+	// Test if second argument is present and part of accepted status
+	if len(os.Args) >= 3 {
+		if exists := values[os.Args[2]]; exists {
+		} else {
+			log.Fatalf("Status must be either : OK, WA, CR, TO or DS")
+		}
+	} else {
+		log.Fatalf("Status must be provided and be either : OK, WA, CR, TO or DS")
+	}
 }
 
 func main() {
@@ -102,8 +123,8 @@ func main() {
 	config := getOptionsFromIniFile(iniFile)
 
 	// Send Data to BEE URL
-	//postToBee(config)
+	postToBee(config)
 
 	// Pretty Print content of "config"
-	fmt.Println(prettyPrint(config))
+	//fmt.Println(prettyPrint(config))
 }
