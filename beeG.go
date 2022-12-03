@@ -55,7 +55,7 @@ func getOptionsFromIniFile(f string) Options {
 
 	// Create Batch Location string
 	hostName, _ := os.Hostname()
-	scriptPath, _ := os.Executable()
+	scriptPath := os.Args[0]
 	conf.BATCH_LOCATION = hostName + " - " + scriptPath
 
 	// Get status from ARG2
@@ -77,19 +77,32 @@ func postToBee(c Options) string {
 	if err != nil {
 		log.Fatalf("HTTP POST error :\n %v", err)
 	}
-	fmt.Printf("%v\n", resp)
+	fmt.Printf("%#v\n", resp)
 	return ("ok")
+}
+
+func testArgs() {
+	values := map[string]bool{"OK": true, "WA": true, "CR": true, "TO": true, "DS": true}
+
+	if len(os.Args) > 1 {
+
+	} else {
+		log.Fatalf("Missing Arguments !\n Usage : beeG.exe [ini file] [\"Status\"] [\"Value\"]")
+	}
+
 }
 
 func main() {
 
-	iniFile := os.Args[1]
+	// Validate command line arguments
+	testArgs()
 
 	// Get Options from ini file
+	iniFile := os.Args[1]
 	config := getOptionsFromIniFile(iniFile)
 
 	// Send Data to BEE URL
-	postToBee(config)
+	//postToBee(config)
 
 	// Pretty Print content of "config"
 	fmt.Println(prettyPrint(config))

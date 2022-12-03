@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${fileDirname}",
-            "args": ["beeG.ini","OK","I love BeeG's"]
+            //"args": ["beeG.ini","OK","I love BeeG's"]
         }
     ]
 }
