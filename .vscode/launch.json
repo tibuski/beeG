@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${fileDirname}",
-            "args": ["beeG.ini"]
+            "args": ["beeG.ini","OK","Troubleshoot Bee"]
         }
     ]
 }

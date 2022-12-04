@@ -11,38 +11,15 @@ import (
 	"time"
 )
 
-type Options struct {
-	AUTHKEY          string
-	EFFECTIVE_STATUS string
-	TEAMID           string
-	REVISION         string
-	HEARTBEAT        string
-	ZOMBEAT          string
-	VALUE            string
-	X_ORG_ID         string
-	CMDB_SERVICE     string
-	ALERTID1         string
-	ALERTID2         string
-	ALERTTEXT        string
-	ALERTENV         string
-	BATCH_LOCATION   string
-	BATCH_COMMENT    string
-	BATCH_URL        string
-	BATCH_DOC        string
-	BEHAVIOR         string
-	ALERT_MAIL       string
-	BEE_URL          string
-}
+// func prettyPrint(i interface{}) string {
+// 	// Function : Pretty print config array
+// 	s, _ := json.MarshalIndent(i, "", "\t")
+// 	return string(s)
+// }
 
-func prettyPrint(i interface{}) string {
-	// Function : Pretty print config array
-	s, _ := json.MarshalIndent(i, "", "\t")
-	return string(s)
-}
-
-func getOptionsFromIniFile(f string) Options {
+func getOptionsFromIniFile(f string) map[string]string {
 	// Function : read and format ini file
-	conf := Options{}
+	var conf map[string]string
 
 	// Read iniFile and print error if any
 	jsonContent, err := os.ReadFile(f)
@@ -57,24 +34,26 @@ func getOptionsFromIniFile(f string) Options {
 
 	// Create Batch Location string
 	hostName, _ := os.Hostname()
-	scriptPath := os.Args[0]
-	conf.BATCH_LOCATION = hostName + " - " + scriptPath
+	scriptPath, _ := os.Executable()
+	conf["BATCH_LOCATION"] = hostName + " - " + scriptPath
 
 	// Get status from ARG2
-	conf.EFFECTIVE_STATUS = os.Args[2]
+	conf["EFFECTIVE_STATUS"] = os.Args[2]
 
 	// Test if third argument is provided, if not, replace by current date/time
 	if len(os.Args) == 4 {
-		conf.VALUE = os.Args[3]
+		conf["VALUE"] = os.Args[3]
 	} else {
-		conf.VALUE = time.Now().Format("Monday 2006-01-02 15:04:05")
+		conf["VALUE"] = time.Now().Format("Monday 2006-01-02 15:04:05")
 	}
 
 	return conf
 }
 
-func postToBee(c Options) string {
-	url := c.BEE_URL
+func postToBee(c map[string]string) {
+	url := c["BEE_URL"]
+	// Remove BEE_URL option from Bee Array
+	delete(c, "BEE_URL")
 	msg, err := json.Marshal(c)
 	if err != nil {
 		log.Fatalf("Convert to JSON error :\n %v", err)
@@ -84,7 +63,6 @@ func postToBee(c Options) string {
 		log.Fatalf("HTTP POST error :\n %v", err)
 	}
 	fmt.Printf("%#v\n", resp)
-	return ("ok")
 }
 
 func testArgs() {
@@ -99,7 +77,7 @@ func testArgs() {
 	// Test if first argument contains .ini
 	if strings.Contains(os.Args[1], ".ini") {
 	} else {
-		log.Fatalf("First argument must contain a *.ini file name")
+		log.Fatal("First argument must contain a *.ini file name")
 	}
 
 	// Test if second argument is present and part of accepted status
