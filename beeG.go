@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -51,18 +53,44 @@ func getOptionsFromIniFile(f string) map[string]string {
 }
 
 func postToBee(c map[string]string) {
+	// Disable certiciate as we use port 443 without encryption
+	tr := &http.Transport{
+		// This is the insecure setting, it should be set to false.
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+
 	url := c["BEE_URL"]
 	// Remove BEE_URL option from Bee Array
 	delete(c, "BEE_URL")
-	msg, err := json.Marshal(c)
+
+	// Create BEE-DATA message
+	beeData := map[string]map[string]string{}
+	beeData["bee-data"] = c
+	msg, err := json.Marshal(beeData)
+
 	if err != nil {
 		log.Fatalf("Convert to JSON error :\n %v", err)
 	}
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(msg))
+
+	// Debug
+	// fmt.Println(prettyPrint(beeData))
+
+	// Send beeData to url
+	resp, err := client.Post(url, "application/json", bytes.NewBuffer(msg))
 	if err != nil {
 		log.Fatalf("HTTP POST error :\n %v", err)
 	}
-	fmt.Printf("%#v\n", resp)
+	defer resp.Body.Close()
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fmt.Println(resp.Status)
+	fmt.Println(string(b))
+
 }
 
 func testArgs() {
@@ -104,5 +132,5 @@ func main() {
 	postToBee(config)
 
 	// Pretty Print content of "config"
-	//fmt.Println(prettyPrint(config))
+	// fmt.Println(prettyPrint(config))
 }
