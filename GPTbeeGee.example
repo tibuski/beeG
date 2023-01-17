@@ -1,0 +1,136 @@
+package main
+
+import (
+	"bytes"
+	"crypto/tls"
+	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+)
+
+// getOptionsFromIniFile reads the INI file and returns the contents as a map of strings.
+// It returns an error if there is any problem reading or parsing the INI file
+func getOptionsFromIniFile(f string) (map[string]string, error) {
+	var conf map[string]string
+
+	// Read iniFile and return error if any
+	jsonContent, err := ioutil.ReadFile(f)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read ini file: %v", err)
+	}
+	if err := json.Unmarshal(jsonContent, &conf); err != nil {
+		return nil, fmt.Errorf("Failed to parse JSON: %v", err)
+	}
+
+	// Create Batch Location string
+	hostName, _ := os.Hostname()
+	scriptPath, _ := os.Executable()
+	conf["BATCH_LOCATION"] = hostName + " - " + scriptPath
+
+	// Get status from ARG2
+	conf["EFFECTIVE_STATUS"] = os.Args[2]
+
+	// Test if third argument is provided, if not, replace by current date/time
+	if len(os.Args) == 4 {
+		conf["VALUE"] = os.Args[3]
+	} else {
+		conf["VALUE"] = time.Now().Format("Monday 2006-01-02 15:04:05")
+	}
+
+	return conf, nil
+}
+
+// postToBee makes an HTTP POST request to the specified URL with the JSON data
+// It returns an error if there is any problem with the request or response
+func postToBee(c map[string]string) error {
+	// Disable certificate as we use port 443 without encryption
+	tr := &http.Transport{
+		// This is the insecure setting, it should be set to false in production.
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+
+	url := c["BEE_URL"]
+	// Remove BEE_URL option from Bee Array
+	delete(c, "BEE_URL")
+
+	// Create BEE-DATA message
+	beeData := map[string]map[string]string{}
+	beeData["bee-data"] = c
+	msg, err := json.Marshal(beeData)
+
+	if err != nil {
+		return fmt.Errorf("Failed to convert to JSON: %v", err)
+	}
+
+	// Send beeData to url
+	resp, err := client.Post(url, "application/json", bytes.NewBuffer(msg))
+	if err != nil {
+		return fmt.Errorf("Failed to make HTTP POST request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("Failed to read response body: %v", err)
+	}
+
+	fmt.Println(resp.Status)
+	fmt.Println(string(b))
+
+	return nil
+}
+
+// testArgs performs basic validation on the command line arguments
+// It returns an error if there is any problem with the arguments
+func testArgs() error {
+	values := map[string]bool{"OK": true, "WA": true, "CR": true, "TO": true, "DS": true}
+
+	// Test if run with arguments
+	if len(os.Args) > 1 {
+	} else {
+		return fmt.Errorf("Missing Arguments! Usage: beeG.exe [ini file] [\"Status\"] [\"Value\"]")
+	}
+
+	// Test if first argument contains .ini
+	if strings.Contains(os.Args[1], ".ini") {
+	} else {
+		return fmt.Errorf("First argument must contain a *.ini file name")
+	}
+
+	// Test if second argument is present and part of accepted status
+	if len(os.Args) >= 3 {
+		if values[os.Args[2]] {
+		} else {
+			return fmt.Errorf("Status must be either OK, WA, CR, TO or DS")
+		}
+	} else {
+		return fmt.Errorf("Missing status argument")
+	}
+
+	return nil
+}
+
+func main() {
+	// Test command line arguments
+	if err := testArgs(); err != nil {
+		log.Fatalf("Argument error: %v", err)
+	}
+
+	// Get options from ini file
+	options, err := getOptionsFromIniFile(os.Args[1])
+	if err != nil {
+		log.Fatalf("Failed to get options from ini file: %v", err)
+	}
+
+	// Post to Bee
+	if err := postToBee(options); err != nil {
+		log.Fatalf("Failed to post to Bee: %v", err)
+	}
+}
